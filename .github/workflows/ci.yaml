@@ -22,4 +22,4 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     - name: Check scanner report file
-      run: ls -la
+      run: cat /home/runner/work/sarif-sonarcloud/sarif-sonarcloud/.scannerwork/report-task.txt
