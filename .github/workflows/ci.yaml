@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - run: pwd
+    - run: ls -la
     - name: SonarCloud Scan
       uses: sonarsource/sonarcloud-github-action@master
       env:
