@@ -1,0 +1,8 @@
+name: 'SonarCloud Sarif report'
+description: 'Convert SonarCloud issues to sarif report'
+branding:
+  icon: 'check'
+  color: 'green'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
