@@ -1,0 +1,15 @@
+bitbucket-pipes-toolkit==0.6.2
+Cerberus==1.2
+certifi==2019.3.9
+chardet==3.0.4
+colorama==0.3.9
+colorlog==4.0.2
+docker==3.7.0
+docker-pycreds==0.4.0
+idna==2.5
+PyYAML==5.1
+requests==2.22.0
+requests2==2.16.0
+six==1.12.0
+urllib3==1.21.1
+websocket-client==0.56.0

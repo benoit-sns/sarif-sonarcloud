@@ -1,0 +1,68 @@
+{
+  "$schema" : "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version" : "2.1.0",
+  "runs" : [
+    {
+      "tool": {
+        "driver": {
+          "name": "SonarCloud",
+          "organization": "SonarSource",
+          "rules": [
+            {
+              "id": "sonarcloud/RSPEC-2068",
+              "name": "sonarcloud/RSPEC-2068",
+              "shortDescription": {
+                "text": "Show Javascript Ifs"
+              },
+              "fullDescription": {
+                "text": "Show Javascript Ifs"
+              },
+              "defaultConfiguration": {},
+              "properties": {
+                "kind": "problem",
+                "name": "Show Javascript Ifs",
+                "description": "Show Javascript Ifs",
+                "id": "sonarcloud/RSPEC-2068"
+              }
+            }
+          ]
+        }
+      },
+      "artifacts" : [ {
+        "location" : {
+          "uri" : "file.js",
+          "uriBaseId" : "%SRCROOT%",
+          "index" : 1
+        }
+      }],
+      "results" : [ {
+        "ruleId" : "sonarcloud/RSPEC-2068",
+        "ruleIndex" : 53,
+        "message" : {
+          "text" : "Hard-coded credentials are security-sensitive"
+        },
+        "locations" : [ {
+          "physicalLocation" : {
+            "artifactLocation" : {
+              "uri" : "file.js",
+              "uriBaseId" : "%SRCROOT%",
+              "index" : 1
+            },
+            "region" : {
+              "startLine" : 12,
+              "endLine" : 12,
+              "endColumn" : 22
+            }
+          }
+        } ],
+        "partialFingerprints" : {
+          "primaryLocationLineHash" : "c7f7e99ca8049a6b:1",
+          "primaryLocationStartColumnFingerprint" : "0"
+        }
+      } ],
+      "newlineSequences" : [ "\r\n", "\n", "â€¨", "â€©" ],
+      "columnKind" : "utf16CodeUnits"
+    }
+  ]
+}
+
