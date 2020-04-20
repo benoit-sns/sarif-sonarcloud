@@ -75,7 +75,7 @@ def has_multi_location(issue):
 
 
 def create_multi_locations(issue, components):
-    return [to_flow(flow, components, i) for i, flow in enumerate(issue['flows'][0]['locations'])]
+    return [to_flow(flow, components, i) for i, flow in enumerate(reversed(issue['flows'][0]['locations']))]
 
 
 def to_location(issue, components):
