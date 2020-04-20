@@ -43,26 +43,68 @@ def to_rules(issues):
     return [to_rule(rule) for rule in issues]
 
 
-def to_result(issue, components):
+def region(issue):
+    return {
+        'startLine': issue['textRange']['startLine'],
+        'endLine': issue['textRange']['endLine'],
+        'startColumn': issue['textRange']['startOffset'],
+        'endColumn': issue['textRange']['endOffset']
+    }
+
+
+def to_flow(flow, components):
+    return {
+        'physicalLocation': {
+          'region': region(flow),
+          'artifactLocation': {
+            'uriBaseId': '%SRCROOT%',
+            'uri': get_file_path(components, flow['component'])
+          }
+        },
+        'message': {
+          'text': flow['msg']
+        }
+      }
+
+
+def has_multi_location(issue):
+    return 'flows' in issue and len(issue['flows']) > 0
+
+
+def create_multi_locations(issue, components):
+    return [to_flow(flow, components) for flow in issue['flows'][0]['locations']]
+
+
+def to_location(issue, components):
     file_uri = next((item['path'] for item in components if item['key'] == issue['component']), None)
     return {
+        'physicalLocation': {
+            'artifactLocation': {
+                'uri': file_uri,
+                'uriBaseId': '%SRCROOT%'
+            },
+            'region': region(issue)
+        }
+    }
+
+
+def to_result(issue, components):
+    result = {
         'ruleId': issue['rule'],
         'message': {
             'text': issue['message']
         },
-        'locations': [{
-            'physicalLocation': {
-                'artifactLocation': {
-                    'uri': file_uri,
-                    'uriBaseId': '%SRCROOT%'
-                },
-                'region': {
-                    'startLine': issue['textRange']['startLine'],
-                    'endLine': issue['textRange']['endLine']
-                }
-            }
-        }]
+        'locations': [to_location(issue, components)]
     }
+
+    if has_multi_location(issue):
+        result['codeFlows'] = [{
+            'threadFlows': [{
+                'locations': create_multi_locations(issue, components)
+            }]
+        }]
+
+    return result
 
 
 def to_results(issues):
@@ -97,12 +139,12 @@ class QualityCheckError(BaseException):
 
 class ReportTask:
     def __init__(self, path):
-        with open(path, "r") as file:
+        with open(path, 'r') as file:
             content = file.read()
-            self.organization = self._extract_property("organization", content)
-            self.project_key = self._extract_property("projectKey", content)
-            self.task_id = self._extract_property("ceTaskId", content)
-            self.ce_task_url = self._extract_property("ceTaskUrl", content)
+            self.organization = self._extract_property('organization', content)
+            self.project_key = self._extract_property('projectKey', content)
+            self.task_id = self._extract_property('ceTaskId', content)
+            self.ce_task_url = self._extract_property('ceTaskUrl', content)
 
     @staticmethod
     def _extract_property(key, scanner_report):
@@ -110,7 +152,7 @@ class ReportTask:
         if match:
             return match.group(1)
 
-        raise Exception(f"Could not find property {key} from scanner report")
+        raise Exception(f'Could not find property {key} from scanner report')
 
 
 def compute_max_retry_count(poll_interval_seconds, timeout_seconds):
@@ -122,21 +164,21 @@ class QualityGateStatus:
         try:
             self.status = obj['projectStatus']['status']
         except:
-            raise QualityCheckError("Could not parse quality gate status from json: {}".format(json.dumps(obj)))
+            raise QualityCheckError('Could not parse quality gate status from json: {}'.format(json.dumps(obj)))
 
 
 class CeTask:
     def __init__(self, obj):
-        """
-        >>> CeTask({"task": {"status": "IN_PROGRESS"}}).is_completed()
+        '''
+        >>> CeTask({'task': {'status': 'IN_PROGRESS'}}).is_completed()
         False
-        """
+        '''
         try:
             self.status = obj['task']['status']
             self.completed = self.status not in ('IN_PROGRESS', 'PENDING')
             self.analysis_id = obj['task'].get('analysisId')
         except:
-            raise QualityCheckError("Could not parse compute engine task from json: {}".format(json.dumps(obj)))
+            raise QualityCheckError('Could not parse compute engine task from json: {}'.format(json.dumps(obj)))
 
     def is_completed(self):
         return self.completed
@@ -152,22 +194,22 @@ class SonarCloudClient:
             try:
                 errors_as_dict = req.json()
                 errors_summary = '; '.join([e['msg'] for e in errors_as_dict['errors']])
-                raise QualityCheckError("{}: {}".format(error_message_prefix, errors_summary))
+                raise QualityCheckError('{}: {}'.format(error_message_prefix, errors_summary))
             except:
                 content = req.content
-                raise QualityCheckError("{}: {}".format(error_message_prefix, content))
+                raise QualityCheckError('{}: {}'.format(error_message_prefix, content))
 
         return req.json()
 
     def get_ce_task(self, url):
-        return CeTask(self._get_response_as_dict(url, "Could not fetch compute engine task"))
+        return CeTask(self._get_response_as_dict(url, 'Could not fetch compute engine task'))
 
     def get_issues(self, organization, project):
         url = f'https://sonarcloud.io/api/issues/search?organization={organization}&projects={project}&additionalFields=rules&resolved=false'
-        return self._get_response_as_dict(url, "Could not fetch issue list")
+        return self._get_response_as_dict(url, 'Could not fetch issue list')
 
     def get_quality_gate_status(self, url):
-        return QualityGateStatus(self._get_response_as_dict(url, "Could not fetch quality gate status"))
+        return QualityGateStatus(self._get_response_as_dict(url, 'Could not fetch quality gate status'))
 
 
 def create_ce_task_getter(client, ce_task_url):
@@ -184,11 +226,11 @@ def wait_for_completed_ce_task(ce_task_getter, max_retry_count, poll_interval_se
 
         time.sleep(poll_interval_seconds)
 
-    raise QualityCheckError("Compute engine task did not complete within time")
+    raise QualityCheckError('Compute engine task did not complete within time')
 
 
 def get_quality_gate_status_url(ce_task):
-    return "https://sonarcloud.io/api/qualitygates/project_status?analysisId={}".format(ce_task.analysis_id)
+    return 'https://sonarcloud.io/api/qualitygates/project_status?analysisId={}'.format(ce_task.analysis_id)
 
 
 def get_variable(name, required=False, default=None):
@@ -214,15 +256,14 @@ def main():
     quality_gate_status = client.get_quality_gate_status(quality_gate_status_url)
 
     if quality_gate_status.status == 'OK' or quality_gate_status.status == 'ERROR':
-        print(f"QG {quality_gate_status.status}")
+        print(f'QG {quality_gate_status.status}')
         issues = client.get_issues(scanner_report.organization, scanner_report.project_key)
 
-        print(json.dumps(issues, indent=2))
         create_report(issues)
         with open('sonarcloud-output.sarif.json', 'w') as output:
             output.write(json.dumps(create_report(issues), indent=2))
     else:
-        print("QG error")
+        print('QG error')
 
 
 if __name__ == '__main__':
