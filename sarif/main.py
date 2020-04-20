@@ -47,8 +47,8 @@ def region(issue):
     return {
         'startLine': issue['textRange']['startLine'],
         'endLine': issue['textRange']['endLine'],
-        'startColumn': issue['textRange']['startOffset'],
-        'endColumn': issue['textRange']['endOffset']
+        'startColumn': issue['textRange']['startOffset'] + 1,
+        'endColumn': issue['textRange']['endOffset'] + 1
     }
 
 
