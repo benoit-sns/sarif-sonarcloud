@@ -52,8 +52,9 @@ def region(issue):
     }
 
 
-def to_flow(flow, components):
+def to_flow(flow, components, index):
     return {
+        'id': index + 1,
         'physicalLocation': {
           'region': region(flow),
           'artifactLocation': {
@@ -72,7 +73,7 @@ def has_multi_location(issue):
 
 
 def create_multi_locations(issue, components):
-    return [to_flow(flow, components) for flow in issue['flows'][0]['locations']]
+    return [to_flow(flow, components, i) for i, flow in enumerate(issue['flows'][0]['locations'])]
 
 
 def to_location(issue, components):
@@ -99,6 +100,7 @@ def to_result(issue, components):
 
     if has_multi_location(issue):
         multi_locations = create_multi_locations(issue, components)
+        result['locations'] = multi_locations
         result['relatedLocations'] = multi_locations
         result['codeFlows'] = [{
             'threadFlows': [{
