@@ -54,16 +54,18 @@ def region(issue):
 
 def to_flow(flow, components, index):
     return {
-        'id': index + 1,
-        'physicalLocation': {
-          'region': region(flow),
-          'artifactLocation': {
-            'uriBaseId': '%SRCROOT%',
-            'uri': get_file_path(components, flow['component'])
-          }
-        },
-        'message': {
-          'text': flow['msg']
+        'location': {
+            'id': index + 1,
+            'physicalLocation': {
+                'region': region(flow),
+                'artifactLocation': {
+                    'uriBaseId': '%SRCROOT%',
+                    'uri': get_file_path(components, flow['component'])
+                }
+            },
+            'message': {
+                'text': flow['msg']
+            }
         }
       }
 
@@ -100,7 +102,6 @@ def to_result(issue, components):
 
     if has_multi_location(issue):
         multi_locations = create_multi_locations(issue, components)
-        result['relatedLocations'] = multi_locations
         result['codeFlows'] = [{
             'threadFlows': [{
                 'locations': multi_locations
