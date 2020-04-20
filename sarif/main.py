@@ -98,9 +98,11 @@ def to_result(issue, components):
     }
 
     if has_multi_location(issue):
+        multi_locations = create_multi_locations(issue, components)
+        result['relatedLocations'] = multi_locations
         result['codeFlows'] = [{
             'threadFlows': [{
-                'locations': create_multi_locations(issue, components)
+                'locations': multi_locations
             }]
         }]
 
