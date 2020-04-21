@@ -110,17 +110,7 @@ def create_multi_locations(issue, components):
 
 
 def to_location(issue, components):
-    file_uri = next((file['path'] for file in components if file['key'] == issue['component'] and 'path' in file), None)
-    if file_uri is None:
-        return {
-            'physicalLocation': {
-                'artifactLocation': {
-                    'uri': 'foo.txt',
-                    'uriBaseId': '%SRCROOT%'
-                },
-                'region': region(issue)
-            }
-        }
+    file_uri = next((file['path'] for file in components if file['key'] == issue['component']), None)
 
     return {
         'physicalLocation': {
@@ -153,8 +143,14 @@ def to_result(issue, components):
     return result
 
 
+def issue_has_location(issue, components):
+    component = next((file for file in components if file['key'] == issue['component']), None)
+
+    return 'path' in component
+
+
 def to_results(issues):
-    return [to_result(issue, issues['components']) for issue in issues['issues']]
+    return [to_result(issue, issues['components']) for issue in issues['issues'] if issue_has_location(issue, issues['components'])]
 
 
 def create_report(client, scanner_report):
