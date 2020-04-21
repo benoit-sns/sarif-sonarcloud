@@ -67,6 +67,9 @@ def to_rules(client, issues):
 
 
 def region(issue):
+    if 'textRange' not in issue:
+        return {}
+
     return {
         'startLine': issue['textRange']['startLine'],
         'endLine': issue['textRange']['endLine'],
@@ -140,7 +143,7 @@ def to_results(issues):
 
 def create_report(client, scanner_report):
     issues = client.get_issues(scanner_report.project_key)
-
+    print(json.dumps(issues, indent=2))
     artifacts = to_artifacts(issues['components'])
     return {
         '$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
@@ -235,7 +238,12 @@ class SonarCloudClient:
         return CeTask(self._get_response_as_dict(url, 'Could not fetch compute engine task'))
 
     def get_issues(self, project):
-        url = f'https://sonarcloud.io/api/issues/search?organization={self.organization}&projects={project}&additionalFields=rules&resolved=false'
+        pr = get_variable('PR', required=False, default=None)
+        if pr is None:
+            url = f'https://sonarcloud.io/api/issues/search?organization={self.organization}&projects={project}&additionalFields=rules&resolved=false'
+        else:
+            url = f'https://sonarcloud.io/api/issues/search?organization={self.organization}&projects={project}&pullRequest={pr}&additionalFields=rules&resolved=false'
+
         return self._get_response_as_dict(url, 'Could not fetch issue list')
 
     def get_quality_gate_status(self, url):
@@ -272,6 +280,14 @@ def get_variable(name, required=False, default=None):
     if required and (value is None or not value.strip()):
         raise Exception('{} variable missing.'.format(name))
     return value if value else default
+
+
+def extract_branch_name(ref):
+    match = re.search(r'(refs/heads/)?(.*)', ref)
+    if match:
+        return match.group(2)
+
+    raise Exception(f'Could not extract branch name from {ref}')
 
 
 def main():
