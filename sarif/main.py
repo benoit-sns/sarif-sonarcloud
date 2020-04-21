@@ -29,18 +29,41 @@ def to_artifacts(components):
     return [to_artifact(issue) for issue in files_component]
 
 
+def to_level(severity):
+    severity_to_level = {
+        'INFO': 'note',
+        'MINOR': 'note',
+        'MAJOR': 'warning',
+        'CRITICAL': 'error',
+        'BLOCKER': 'error'
+    }
+    return severity_to_level.get(severity)
+
+
 def to_rule(rule):
     return {
         'id': rule['key'],
         'name': rule['key'],
         'shortDescription': {
             'text': rule['name']
-        }
+        },
+        'fullDescription': {
+            'text': rule['name']
+        },
+        'help': {
+            'text': rule['mdDesc']
+        },
+        'properties': {
+            'tags': rule['sysTags']
+        },
+        'defaultConfiguration': {
+            'level': to_level(rule['severity'])
+        },
     }
 
 
-def to_rules(issues):
-    return [to_rule(rule) for rule in issues]
+def to_rules(client, issues):
+    return [to_rule(client.get_rule(rule['key'])) for rule in issues]
 
 
 def region(issue):
@@ -115,7 +138,9 @@ def to_results(issues):
     return [to_result(issue, issues['components']) for issue in issues['issues']]
 
 
-def create_report(issues):
+def create_report(client, scanner_report):
+    issues = client.get_issues(scanner_report.project_key)
+
     artifacts = to_artifacts(issues['components'])
     return {
         '$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
@@ -125,7 +150,7 @@ def create_report(issues):
                 'driver': {
                     'name': 'SonarCloud',
                     'organization': 'SonarSource',
-                    'rules': to_rules(issues['rules'])
+                    'rules': to_rules(client, issues['rules'])
                 }
               },
             'artifacts': artifacts,
@@ -189,8 +214,9 @@ class CeTask:
 
 
 class SonarCloudClient:
-    def __init__(self, sonar_token):
+    def __init__(self, sonar_token, organization):
         self.sonar_token = sonar_token
+        self.organization = organization
 
     def _get_response_as_dict(self, url, error_message_prefix):
         req = requests.get(url, auth=HTTPBasicAuth(self.sonar_token, ''))
@@ -208,12 +234,16 @@ class SonarCloudClient:
     def get_ce_task(self, url):
         return CeTask(self._get_response_as_dict(url, 'Could not fetch compute engine task'))
 
-    def get_issues(self, organization, project):
-        url = f'https://sonarcloud.io/api/issues/search?organization={organization}&projects={project}&additionalFields=rules&resolved=false'
+    def get_issues(self, project):
+        url = f'https://sonarcloud.io/api/issues/search?organization={self.organization}&projects={project}&additionalFields=rules&resolved=false'
         return self._get_response_as_dict(url, 'Could not fetch issue list')
 
     def get_quality_gate_status(self, url):
         return QualityGateStatus(self._get_response_as_dict(url, 'Could not fetch quality gate status'))
+
+    def get_rule(self, rule_key):
+        url = f'https://sonarcloud.io/api/rules/search?organization={self.organization}&rule_key={rule_key}'
+        return self._get_response_as_dict(url, f'Could not fetch rule {rule_key}')['rules'][0]
 
 
 def create_ce_task_getter(client, ce_task_url):
@@ -249,9 +279,9 @@ def main():
     report_path = get_variable('REPORT_PATH', required=True)
     timeout_seconds = get_variable('SONAR_QUALITY_GATE_TIMEOUT', required=False, default=DEFAULT_TIMEOUT_SECONDS)
 
-    client = SonarCloudClient(sonar_token)
-
     scanner_report = ReportTask(report_path)
+
+    client = SonarCloudClient(sonar_token, scanner_report.organization)
 
     max_retry_count = compute_max_retry_count(POLL_INTERVAL_SECONDS, timeout_seconds)
     ce_task = wait_for_completed_ce_task(create_ce_task_getter(client, scanner_report.ce_task_url), max_retry_count)
@@ -261,11 +291,9 @@ def main():
 
     if quality_gate_status.status == 'OK' or quality_gate_status.status == 'ERROR':
         print(f'QG {quality_gate_status.status}')
-        issues = client.get_issues(scanner_report.organization, scanner_report.project_key)
 
-        create_report(issues)
         with open('sonarcloud-output.sarif.json', 'w') as output:
-            output.write(json.dumps(create_report(issues), indent=2))
+            output.write(json.dumps(create_report(client, scanner_report), indent=2))
     else:
         print('QG error')
 
