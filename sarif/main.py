@@ -90,7 +90,7 @@ def to_flow(flow, components, index):
                 }
             },
             'message': {
-                'text': flow['msg']
+                'text': flow.get('msg', "")
             }
         }
       }
@@ -105,7 +105,10 @@ def create_multi_locations(issue, components):
 
 
 def to_location(issue, components):
-    file_uri = next((item['path'] for item in components if item['key'] == issue['component']), None)
+    file_uri = next((file['path'] for file in components if file['key'] == issue['component'] and 'path' in file), None)
+    if file_uri is None:
+        return {}
+
     return {
         'physicalLocation': {
             'artifactLocation': {
@@ -143,7 +146,6 @@ def to_results(issues):
 
 def create_report(client, scanner_report):
     issues = client.get_issues(scanner_report.project_key)
-    print(json.dumps(issues, indent=2))
     artifacts = to_artifacts(issues['components'])
     return {
         '$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
