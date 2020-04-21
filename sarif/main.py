@@ -68,12 +68,7 @@ def to_rules(client, issues):
 
 def region(issue):
     if 'textRange' not in issue:
-        return {
-        'startLine': 1,
-        'endLine': 1,
-        'startColumn': 1,
-        'endColumn': 1
-    }
+        print(issue)
 
     return {
         'startLine': issue['textRange']['startLine'],
@@ -146,7 +141,7 @@ def to_result(issue, components):
 def issue_has_location(issue, components):
     component = next((file for file in components if file['key'] == issue['component']), None)
 
-    return 'path' in component
+    return 'path' in component and 'textRange' in issue
 
 
 def to_results(issues):
