@@ -68,7 +68,12 @@ def to_rules(client, issues):
 
 def region(issue):
     if 'textRange' not in issue:
-        return {}
+        return {
+        'startLine': 1,
+        'endLine': 1,
+        'startColumn': 1,
+        'endColumn': 1
+    }
 
     return {
         'startLine': issue['textRange']['startLine'],
@@ -107,7 +112,15 @@ def create_multi_locations(issue, components):
 def to_location(issue, components):
     file_uri = next((file['path'] for file in components if file['key'] == issue['component'] and 'path' in file), None)
     if file_uri is None:
-        return {}
+        return {
+            'physicalLocation': {
+                'artifactLocation': {
+                    'uri': 'foo.txt',
+                    'uriBaseId': '%SRCROOT%'
+                },
+                'region': region(issue)
+            }
+        }
 
     return {
         'physicalLocation': {
