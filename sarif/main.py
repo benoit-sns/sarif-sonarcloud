@@ -298,7 +298,7 @@ def get_variable(name, required=False, default=None):
 
 def main():
     sonar_token = get_variable('SONAR_TOKEN', required=True)
-    report_path = get_variable('REPORT_PATH', required=True)
+    report_path = get_variable('REPORT_PATH', required=False, default='./.scannerwork/report-task.txt')
     timeout_seconds = get_variable('SONAR_QUALITY_GATE_TIMEOUT', required=False, default=DEFAULT_TIMEOUT_SECONDS)
 
     scanner_report = ReportTask(report_path)
@@ -312,12 +312,11 @@ def main():
     quality_gate_status = client.get_quality_gate_status(quality_gate_status_url)
 
     if quality_gate_status.status == 'OK' or quality_gate_status.status == 'ERROR':
-        print(f'QG {quality_gate_status.status}')
 
         with open('sonarcloud-output.sarif.json', 'w') as output:
             output.write(json.dumps(create_report(client, scanner_report), indent=2))
     else:
-        print('QG error')
+        print('SC failed to process report. Aborting.')
 
 
 if __name__ == '__main__':
