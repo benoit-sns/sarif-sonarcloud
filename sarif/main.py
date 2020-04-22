@@ -134,8 +134,14 @@ def to_result(issue, components):
     return result
 
 
+def issue_has_location(issue, components):
+    component = next((file for file in components if file['key'] == issue['component']), None)
+
+    return 'path' in component and 'textRange' in issue
+
+
 def to_results(issues):
-    return [to_result(issue, issues['components']) for issue in issues['issues']]
+    return [to_result(issue, issues['components']) for issue in issues['issues'] if issue_has_location(issue, issues['components'])]
 
 
 def create_report(client, scanner_report):
