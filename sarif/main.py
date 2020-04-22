@@ -114,13 +114,17 @@ def to_location(issue, components):
     }
 
 
-def to_result(issue, components):
+def to_result(client, issue, components):
+    line = client.get_line_content(issue['component'], issue['textRange']['startLine'])
     result = {
         'ruleId': issue['rule'],
         'message': {
             'text': issue['message']
         },
-        'locations': [to_location(issue, components)]
+        'locations': [to_location(issue, components)],
+        'partialFingerprints': {
+            'primaryLocationLineHash': str(hash(line))
+        }
     }
 
     if has_multi_location(issue):
@@ -140,8 +144,8 @@ def issue_has_location(issue, components):
     return 'path' in component and 'textRange' in issue
 
 
-def to_results(issues):
-    return [to_result(issue, issues['components']) for issue in issues['issues'] if issue_has_location(issue, issues['components'])]
+def to_results(client, issues):
+    return [to_result(client, issue, issues['components']) for issue in issues['issues'] if issue_has_location(issue, issues['components'])]
 
 
 def create_report(client, scanner_report):
@@ -160,7 +164,7 @@ def create_report(client, scanner_report):
                 }
               },
             'artifacts': artifacts,
-            'results': to_results(issues),
+            'results': to_results(client, issues),
             'newlineSequences': ['\r\n', '\n', 'â€¨', 'â€©'],
             'columnKind': 'utf16CodeUnits'
         }]
@@ -266,6 +270,11 @@ class SonarCloudClient:
     def get_rule(self, rule_key):
         url = f'https://sonarcloud.io/api/rules/search?organization={self.organization}&rule_key={rule_key}'
         return self._get_response_as_dict(url, f'Could not fetch rule {rule_key}')['rules'][0]
+
+    def get_line_content(self, file, line):
+        url = f'https://sonarcloud.io/api/sources/index?from={line}&to={line+1}&resource={file}'
+        res = self._get_response_as_dict(url, f'Could not fetch line {line} of file {file}')
+        return res[0][str(line)]
 
 
 def create_ce_task_getter(client, ce_task_url):
