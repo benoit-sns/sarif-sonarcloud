@@ -312,12 +312,11 @@ def main():
     quality_gate_status = client.get_quality_gate_status(quality_gate_status_url)
 
     if quality_gate_status.status == 'OK' or quality_gate_status.status == 'ERROR':
-        print(f'QG {quality_gate_status.status}')
 
         with open('sonarcloud-output.sarif.json', 'w') as output:
             output.write(json.dumps(create_report(client, scanner_report), indent=2))
     else:
-        print('QG error')
+        print('SC failed to process report. Aborting.')
 
 
 if __name__ == '__main__':
