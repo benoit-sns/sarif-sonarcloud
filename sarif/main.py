@@ -180,6 +180,7 @@ class ReportTask:
             self.project_key = self._extract_property('projectKey', content)
             self.task_id = self._extract_property('ceTaskId', content)
             self.ce_task_url = self._extract_property('ceTaskUrl', content)
+            self.dashboard_url = self._extract_property('dashboardUrl', content)
 
     @staticmethod
     def _extract_property(key, scanner_report):
@@ -220,9 +221,17 @@ class CeTask:
 
 
 class SonarCloudClient:
-    def __init__(self, sonar_token, organization):
+    def __init__(self, sonar_token, scanner_report):
         self.sonar_token = sonar_token
-        self.organization = organization
+        self.organization = scanner_report.organization
+        self.pr = self._extract_pr(scanner_report.dashboard_url)
+
+    @staticmethod
+    def _extract_pr(dashboard_url):
+        match = re.search(rf'.*pullRequest=(.*)', dashboard_url)
+        if match:
+            print(match.group(1))
+            return match.group(1)
 
     def _get_response_as_dict(self, url, error_message_prefix):
         req = requests.get(url, auth=HTTPBasicAuth(self.sonar_token, ''))
@@ -242,6 +251,13 @@ class SonarCloudClient:
 
     def get_issues(self, project):
         url = f'https://sonarcloud.io/api/issues/search?organization={self.organization}&projects={project}&additionalFields=rules&resolved=false'
+
+        if self.pr is not None:
+            print(f'Loading issues from PR #{self.pr}')
+            url += f'&pullRequest={self.pr}'
+        else:
+            print('Loading issues from master')
+
         return self._get_response_as_dict(url, 'Could not fetch issue list')
 
     def get_quality_gate_status(self, url):
@@ -287,7 +303,7 @@ def main():
 
     scanner_report = ReportTask(report_path)
 
-    client = SonarCloudClient(sonar_token, scanner_report.organization)
+    client = SonarCloudClient(sonar_token, scanner_report)
 
     max_retry_count = compute_max_retry_count(POLL_INTERVAL_SECONDS, timeout_seconds)
     ce_task = wait_for_completed_ce_task(create_ce_task_getter(client, scanner_report.ce_task_url), max_retry_count)
