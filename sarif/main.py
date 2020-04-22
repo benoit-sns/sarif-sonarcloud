@@ -298,7 +298,7 @@ def get_variable(name, required=False, default=None):
 
 def main():
     sonar_token = get_variable('SONAR_TOKEN', required=True)
-    report_path = get_variable('REPORT_PATH', required=True)
+    report_path = get_variable('REPORT_PATH', required=False, default='./.scannerwork/report-task.txt')
     timeout_seconds = get_variable('SONAR_QUALITY_GATE_TIMEOUT', required=False, default=DEFAULT_TIMEOUT_SECONDS)
 
     scanner_report = ReportTask(report_path)
