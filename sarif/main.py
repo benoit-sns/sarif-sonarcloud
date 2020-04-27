@@ -285,8 +285,6 @@ class SonarCloudClient:
         return self._get_response_as_dict(url, f'Could not fetch rule {rule_key}')['rules'][0]
 
     def get_line_content(self, file, line):
-        print(file)
-        print(f'encoded {urllib.parse.quote_plus(file)}')
         url = f'https://sonarcloud.io/api/sources/raw?key={urllib.parse.quote_plus(file)}'
         if self.pr is not None:
             url += f'&pullRequest={self.pr}'
