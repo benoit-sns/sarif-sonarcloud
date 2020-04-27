@@ -234,8 +234,20 @@ class SonarCloudClient:
     def _extract_pr(dashboard_url):
         match = re.search(rf'.*pullRequest=(.*)', dashboard_url)
         if match:
-            print(match.group(1))
             return match.group(1)
+
+    def _get_as_string(self, url, error_message_prefix):
+        req = requests.get(url, auth=HTTPBasicAuth(self.sonar_token, ''))
+        if req.status_code != 200:
+            try:
+                errors_as_dict = req.json()
+                errors_summary = '; '.join([e['msg'] for e in errors_as_dict['errors']])
+                raise Exception('{}: {}'.format(error_message_prefix, errors_summary))
+            except:
+                content = req.content
+                raise Exception('{}: {}'.format(error_message_prefix, content))
+
+        return req.content
 
     def _get_response_as_dict(self, url, error_message_prefix):
         req = requests.get(url, auth=HTTPBasicAuth(self.sonar_token, ''))
@@ -243,10 +255,10 @@ class SonarCloudClient:
             try:
                 errors_as_dict = req.json()
                 errors_summary = '; '.join([e['msg'] for e in errors_as_dict['errors']])
-                raise QualityCheckError('{}: {}'.format(error_message_prefix, errors_summary))
+                raise Exception('{}: {}'.format(error_message_prefix, errors_summary))
             except:
                 content = req.content
-                raise QualityCheckError('{}: {}'.format(error_message_prefix, content))
+                raise Exception('{}: {}'.format(error_message_prefix, content))
 
         return req.json()
 
@@ -272,9 +284,11 @@ class SonarCloudClient:
         return self._get_response_as_dict(url, f'Could not fetch rule {rule_key}')['rules'][0]
 
     def get_line_content(self, file, line):
-        url = f'https://sonarcloud.io/api/sources/index?from={line}&to={line+1}&resource={file}'
-        res = self._get_response_as_dict(url, f'Could not fetch line {line} of file {file}')
-        return res[0][str(line)]
+        url = f'https://sonarcloud.io/api/sources/raw?key={file}'
+        if self.pr is not None:
+            url += '&pullRequest={self.pr}'
+        res = self._get_as_string(url, f'Could not fetch line {line} of file {file}')
+        return res.splitlines()[line - 1]
 
 
 def create_ce_task_getter(client, ce_task_url):
