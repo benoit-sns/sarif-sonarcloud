@@ -5,6 +5,7 @@ import os
 import re
 import requests
 from requests.auth import HTTPBasicAuth
+import urllib.parse
 import time
 
 DEFAULT_TIMEOUT_SECONDS = 300
@@ -284,9 +285,11 @@ class SonarCloudClient:
         return self._get_response_as_dict(url, f'Could not fetch rule {rule_key}')['rules'][0]
 
     def get_line_content(self, file, line):
-        url = f'https://sonarcloud.io/api/sources/raw?key={file}'
+        print(file)
+        print(f'encoded {urllib.parse.quote_plus(file)}')
+        url = f'https://sonarcloud.io/api/sources/raw?key={urllib.parse.quote_plus(file)}'
         if self.pr is not None:
-            url += '&pullRequest={self.pr}'
+            url += f'&pullRequest={self.pr}'
         res = self._get_as_string(url, f'Could not fetch line {line} of file {file}')
         return res.splitlines()[line - 1]
 
