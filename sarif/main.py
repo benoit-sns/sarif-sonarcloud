@@ -7,6 +7,8 @@ import requests
 from requests.auth import HTTPBasicAuth
 import urllib.parse
 import time
+import gzip
+import base64
 
 DEFAULT_TIMEOUT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
@@ -226,7 +228,8 @@ class CeTask:
 
 
 class SonarCloudClient:
-    def __init__(self, sonar_token, scanner_report):
+    def __init__(self, sonar_url, sonar_token, scanner_report):
+        self.sonar_url = sonar_url
         self.sonar_token = sonar_token
         self.organization = scanner_report.organization
         self.pr = self._extract_pr(scanner_report.dashboard_url)
@@ -267,7 +270,7 @@ class SonarCloudClient:
         return CeTask(self._get_response_as_dict(url, 'Could not fetch compute engine task'))
 
     def get_issues(self, project):
-        url = f'https://sonarcloud.io/api/issues/search?organization={self.organization}&projects={project}&additionalFields=rules&resolved=false'
+        url = f'{self.sonar_url}/api/issues/search?organization={self.organization}&projects={project}&additionalFields=rules&resolved=false'
 
         if self.pr is not None:
             print(f'Loading issues from PR #{self.pr}')
@@ -281,15 +284,39 @@ class SonarCloudClient:
         return QualityGateStatus(self._get_response_as_dict(url, 'Could not fetch quality gate status'))
 
     def get_rule(self, rule_key):
-        url = f'https://sonarcloud.io/api/rules/search?organization={self.organization}&rule_key={rule_key}'
+        url = f'{self.sonar_url}/api/rules/search?organization={self.organization}&rule_key={rule_key}'
         return self._get_response_as_dict(url, f'Could not fetch rule {rule_key}')['rules'][0]
 
     def get_line_content(self, file, line):
-        url = f'https://sonarcloud.io/api/sources/raw?key={urllib.parse.quote_plus(file)}'
+        url = f'{self.sonar_url}/api/sources/raw?key={urllib.parse.quote_plus(file)}'
         if self.pr is not None:
             url += f'&pullRequest={self.pr}'
         res = self._get_as_string(url, f'Could not fetch line {line} of file {file}')
         return res.splitlines()[line - 1]
+
+
+class GithubClient:
+    def __init__(self, username, token, slug):
+        self.username = username
+        self.token = token
+        self.slug = slug
+
+    def upload_report(self, file):
+        body = {
+            'commit_sha': '49990d5ff783d891cfaddfd4ba8b84b762b8429f',
+            'ref': 'refs/heads/master',
+            'sarif': self.zip_sarif(file),
+            'started_at': '2020-08-25T12:00:00Z',
+            'tool_name': 'SonarCloud'
+        }
+        response = requests.post(f'https://api.github.com/repositories/{self.slug}/code-scanning/sarifs',
+                      headers={'Authorization': f'token {self.token}'},
+                      json=body)
+        print(response.json())
+
+    def zip_sarif(self, file_content):
+        out = gzip.compress(str.encode(file_content))
+        return base64.encodebytes(out).decode()
 
 
 def create_ce_task_getter(client, ce_task_url):
@@ -309,8 +336,8 @@ def wait_for_completed_ce_task(ce_task_getter, max_retry_count, poll_interval_se
     raise QualityCheckError('Compute engine task did not complete within time')
 
 
-def get_quality_gate_status_url(ce_task):
-    return 'https://sonarcloud.io/api/qualitygates/project_status?analysisId={}'.format(ce_task.analysis_id)
+def get_quality_gate_status_url(self, ce_task):
+    return f'{self.sonar_url}/api/qualitygates/project_status?analysisId={ce_task.analysis_id}'
 
 
 def get_variable(name, required=False, default=None):
@@ -322,23 +349,30 @@ def get_variable(name, required=False, default=None):
 
 def main():
     sonar_token = get_variable('SONAR_TOKEN', required=True)
+    sonar_url = get_variable('SONAR_HOST_URL', required=True)
     report_path = get_variable('REPORT_PATH', required=False, default='./.scannerwork/report-task.txt')
     timeout_seconds = get_variable('SONAR_QUALITY_GATE_TIMEOUT', required=False, default=DEFAULT_TIMEOUT_SECONDS)
 
+    github_slug = get_variable('GITHUB_SLUG', required=True)
+    github_username = get_variable('GITHUB_USERNAME', required=True)
+    github_token = get_variable('GITHUB_TOKEN', required=True)
+
     scanner_report = ReportTask(report_path)
 
-    client = SonarCloudClient(sonar_token, scanner_report)
+    sonarcloud_client = SonarCloudClient(sonar_url, sonar_token, scanner_report)
+    github_client = GithubClient(github_username, github_token, github_slug)
 
     max_retry_count = compute_max_retry_count(POLL_INTERVAL_SECONDS, timeout_seconds)
-    ce_task = wait_for_completed_ce_task(create_ce_task_getter(client, scanner_report.ce_task_url), max_retry_count)
+    ce_task = wait_for_completed_ce_task(create_ce_task_getter(sonarcloud_client, scanner_report.ce_task_url), max_retry_count)
 
-    quality_gate_status_url = get_quality_gate_status_url(ce_task)
-    quality_gate_status = client.get_quality_gate_status(quality_gate_status_url)
+    quality_gate_status_url = get_quality_gate_status_url(sonarcloud_client, ce_task)
+    quality_gate_status = sonarcloud_client.get_quality_gate_status(quality_gate_status_url)
 
     if quality_gate_status.status == 'OK' or quality_gate_status.status == 'ERROR':
-
         with open('sonarcloud-output.sarif.json', 'w') as output:
-            output.write(json.dumps(create_report(client, scanner_report), indent=2))
+            sarif_json = json.dumps(create_report(sonarcloud_client, scanner_report), indent=2)
+            output.write(sarif_json)
+            github_client.upload_report(sarif_json)
     else:
         print('SC failed to process report. Aborting.')
 
