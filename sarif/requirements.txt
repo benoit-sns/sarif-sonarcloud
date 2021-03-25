@@ -7,7 +7,7 @@ colorlog==4.0.2
 docker==3.7.0
 docker-pycreds==0.4.0
 idna==2.5
-PyYAML==5.1
+PyYAML==5.4
 requests==2.22.0
 requests2==2.16.0
 six==1.12.0
