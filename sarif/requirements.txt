@@ -1,6 +1,6 @@
 bitbucket-pipes-toolkit==0.6.2
 Cerberus==1.2
-certifi==2019.3.9
+certifi==2022.12.7
 chardet==3.0.4
 colorama==0.3.9
 colorlog==4.0.2
